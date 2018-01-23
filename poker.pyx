@@ -3,6 +3,7 @@ import math
 import operator
 import marshal
 import types
+import pickle
 
 class Card:
     def __init__(self, value, suit):
@@ -546,7 +547,7 @@ class TierHandAI:
         self_current_bet = float(self_current_bet) / float(gamestate.big_blind)
         
         if self.hand_value == 0.0:
-            if buy_in <= 1:
+            if buy_in <= 0.0:
                 return 'check'
             return 'fold'
         
@@ -633,7 +634,7 @@ class TopTenHandAI:
         #print buy_in
         
         if self.hand_value == 0.0:
-            if buy_in <= 1.0:
+            if buy_in <= 0.0:
                 return 'check'
             return 'fold'
         
@@ -657,6 +658,71 @@ class TopTenHandAI:
         return 'check'
 
 
+### Preflop Alberta Bot - Cepheus ( http://poker.srv.ualberta.ca/preflop )
+
+class AlbertaAI:
+    def __init__(self):
+        self.look_up_table = {}
+        self.other_player_called = False
+        
+        pickle_in = open("Alberta-bot.dat","rb")
+        self.look_up_table = pickle.load(pickle_in)
+    
+    def setHand(self, hand):
+        self.other_player_called = False
+        self.hand = [hand[0].value, hand[1].value]
+        self.isSameSuit = True if hand[0].suit == hand[1].suit else False
+        self.hand_value = self.evaluateHand()
+    
+    def generateOffset(self):
+        self.offset = 0#random.randint(0, 100)
+    
+    def evaluateHand(self):
+        return 0
+        
+    def decide(self, gamestate, available_actions):
+        player_index = gamestate.current_player
+        
+        card1 = self.hand[0]
+        card2 = self.hand[1]
+        suit = self.isSameSuit
+        
+        prob_num = random.uniform(0, 1)
+        
+        action_sequence = ""
+        
+        if self.other_player_called:
+            action_sequence += "c"
+        
+        if gamestate.highest_bidder != player_index and gamestate.current_bid == gamestate.big_blind:
+            action_sequence = "n"
+        elif gamestate.pot == 2 * gamestate.big_blind:
+            action_sequence = "c"
+            self.other_player_called = True
+        elif gamestate.pot == 3 * gamestate.big_blind:
+            action_sequence += "r"
+        elif gamestate.pot == 4 * gamestate.big_blind:
+            action_sequence += "r"
+        elif gamestate.pot == 5 * gamestate.big_blind:
+            action_sequence += "rr"
+        elif gamestate.pot == 6 * gamestate.big_blind:
+            action_sequence += "rr"
+        elif gamestate.pot == 7 * gamestate.big_blind:
+            action_sequence += "rrr"
+        elif gamestate.pot >= 8 * gamestate.big_blind:
+            action_sequence += "rrr"
+        
+        decision = self.look_up_table[action_sequence][card1][card2][suit]
+        
+        if prob_num < decision['raise']:
+            return 'raise'
+        
+        prob_num -= decision['raise']
+        if prob_num < decision['check']:
+            return 'check'
+
+        return 'fold'
+    
 ### PRIMITIVE TREE FUNCTIONS
 
 def IfThenElse(input_condition, output1, output2):
@@ -790,23 +856,25 @@ def runSimulation(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BL
     agents = [individual]
     agents[0].parseHeuristic()
 
-    agents.append(TierHandAI())
+    #agents.append(TierHandAI())
+    agents.append(AlbertaAI())
 
     gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
     
     results = []
     agent_pot = []
     
-    for i in range(0, n/2):
+    #for i in range(0, n/2):
+    for i in range(0, n):
         result, money = gh.run()
         results.append(result)
         agent_pot.append(money)
     
-    agents[1] = TopTenHandAI()
-    for i in range(n/2, n):
-        result, money = gh.run()
-        results.append(result)
-        agent_pot.append(money)
+    #agents[1] = TopTenHandAI()
+    #for i in range(n/2, n):
+    #    result, money = gh.run()
+    #    results.append(result)
+    #    agent_pot.append(money)
     
     return (results, agent_pot)
 
