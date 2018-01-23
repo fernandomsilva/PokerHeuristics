@@ -458,7 +458,6 @@ class GameHandler:
         self.game.flop()
         self.game.turn()
         self.game.river()
-        
     
     def run(self):
         self.gameloop()
@@ -547,7 +546,7 @@ class TierHandAI:
         self_current_bet = float(self_current_bet) / float(gamestate.big_blind)
         
         if self.hand_value == 0.0:
-            if buy_in <= 0.0:
+            if buy_in <= 10.0:
                 return 'check'
             return 'fold'
         
@@ -565,32 +564,20 @@ class TierHandAI:
         #fold_chance = (1.0 - normalized_hand_value) / 2.0
         fold_chance = (1.0 - math.log(self.hand_value, 20)) + self.fold_offset#+ self.offset
         
-        #max_buy_in = gamestate.number_of_players * normalized_hand_value
+        max_buy_in = 8. * normalized_hand_value
         
-        #if buy_in > max_buy_in:
-        #    return 'fold'
+        if buy_in > max_buy_in:
+            return 'fold'
         
         if random_value < fold_chance:
-            if buy_in == 0 or self_current_bet > 3:
+            if buy_in == 0.0 or self_current_bet > 3.0:
                 return 'check'
             return 'fold'
         
         if highest_bid_level > current_total_bid_level:
-            hand_value = math.log(self.hand_value, 20)
-            log_10 = math.log(10, 20)
-            log_14 = math.log(14, 20)
-            if log_10 > hand_value:
-                return 'raise'
-            elif log_14 > hand_value:
-                return 'raise5'
-            return 'raise10'
+            return 'raise'
         
         return 'check'
-        
-        #level_of_bid = float(gamestate.current_bid - gamestate.players[gamestate.current_player].current_bet)
-        #level_of_bid = self.level_of_bid / float(gamestate.big_blind)
-        
-        # Hand Value interval = [0.0, 20.0]
 
 ### Play Poker Like the Pros (Book), Author: Phil Hellmuth
 
@@ -631,10 +618,9 @@ class TopTenHandAI:
         
     def decide(self, gamestate, available_actions):
         buy_in = float(gamestate.current_bid - gamestate.players[gamestate.current_player].current_bet) / float(gamestate.big_blind)
-        #print buy_in
         
         if self.hand_value == 0.0:
-            if buy_in <= 0.0:
+            if buy_in <= 1.5:
                 return 'check'
             return 'fold'
         
@@ -644,15 +630,12 @@ class TopTenHandAI:
         current_total_bid_level = float(gamestate.pot) / float(gamestate.big_blind)
 
         highest_bid_level = MAX_BID_LEVEL + self.offset
-        #max_buy_in = float(gamestate.number_of_players) * float(self.tier) / 3.0
+        #max_buy_in = float(8.0) * float(self.tier) / 3.0
+        #print max_buy_in
         
         if highest_bid_level > current_total_bid_level:
             #if buy_in > max_buy_in:
             #    return 'fold'
-            if self.tier == 2.0:
-                return 'raise5'
-            elif self.tier == 3.0:
-                return 'raise10'
             return 'raise'
         
         return 'check'
@@ -693,13 +676,13 @@ class AlbertaAI:
         
         if self.other_player_called:
             action_sequence += "c"
-        
+
         if gamestate.highest_bidder != player_index and gamestate.current_bid == gamestate.big_blind:
             action_sequence = "n"
         elif gamestate.pot == 2 * gamestate.big_blind:
             action_sequence = "c"
             self.other_player_called = True
-        elif gamestate.pot == 3 * gamestate.big_blind:
+        if gamestate.pot == 3 * gamestate.big_blind:
             action_sequence += "r"
         elif gamestate.pot == 4 * gamestate.big_blind:
             action_sequence += "r"
@@ -707,11 +690,22 @@ class AlbertaAI:
             action_sequence += "rr"
         elif gamestate.pot == 6 * gamestate.big_blind:
             action_sequence += "rr"
-        elif gamestate.pot == 7 * gamestate.big_blind:
+        elif gamestate.pot >= 7 * gamestate.big_blind:
             action_sequence += "rrr"
-        elif gamestate.pot >= 8 * gamestate.big_blind:
-            action_sequence += "rrr"
+        #elif gamestate.pot >= 8 * gamestate.big_blind:
+        #    action_sequence += "rrr"
         
+        '''
+        if self.other_player_called:
+            action_sequence += "c"
+        if gamestate.pot >= 3 * gamestate.big_blind:
+            action_sequence += "r"
+        if gamestate.pot >= 7 * gamestate.big_blind:
+            action_sequence += "r"
+        if gamestate.pot >= 11 * gamestate.big_blind:
+            action_sequence += "r"
+        '''
+
         decision = self.look_up_table[action_sequence][card1][card2][suit]
         
         if prob_num < decision['raise']:
@@ -855,21 +849,36 @@ def runSimulation(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BL
 
     agents = [individual]
     agents[0].parseHeuristic()
+    
+    one_third_n = n / 2
 
     #agents.append(TierHandAI())
-    agents.append(AlbertaAI())
+    #agents.append(AlbertaAI())
+    agents.append(TopTenHandAI())
 
     gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
     
     results = []
     agent_pot = []
     
-    #for i in range(0, n/2):
-    for i in range(0, n):
+    '''
+    for i in range(0, one_third_n):
         result, money = gh.run()
         results.append(result)
         agent_pot.append(money)
-    
+    '''
+
+    for i in range(0, one_third_n):
+        result, money = gh.run()
+        results.append(result)
+        agent_pot.append(money)
+
+    agents[1] = AlbertaAI()
+    for i in range(0, one_third_n):
+        result, money = gh.run()
+        results.append(result)
+        agent_pot.append(money)
+
     #agents[1] = TopTenHandAI()
     #for i in range(n/2, n):
     #    result, money = gh.run()
