@@ -907,3 +907,36 @@ def evaluateVariance(player, n=8000):
     money_lost = 0.0
 
     return (money,)
+
+def runSimulationForTrees(individual, opponent, n,  TOTAL_PLAYER_POT=1000, BIG_BLIND=20):
+    number_of_players = 2
+    total_player_pot = TOTAL_PLAYER_POT
+    small_blind = BIG_BLIND / 2
+
+    agents = [individual, opponent]
+    agents[0].parseHeuristic()
+    agents[1].parseHeuristic()
+        
+    gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
+    
+    results = []
+    agent_pot = []
+    
+    for i in range(0, n):
+        result, money = gh.runGetAllPlayerPots()
+        results.append(result)
+        agent_pot.append(money)
+    
+    return agent_pot
+
+def evaluateMatchUp(player, opponent, n=8000, TOTAL_PLAYER_POT=1000, BIG_BLIND=20):
+    money = runSimulationForTrees(player, opponent, n, TOTAL_PLAYER_POT, BIG_BLIND)
+    
+    p_money = 0.0
+    op_money = 0.0
+    
+    for agent_money in money:
+        p_money += agent_money[0]
+        op_money += agent_money[1]
+    
+    return ((p_money / float(n)) - float(TOTAL_PLAYER_POT), (op_money / float(n)) - float(TOTAL_PLAYER_POT))
