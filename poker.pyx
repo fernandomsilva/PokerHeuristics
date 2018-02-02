@@ -861,19 +861,17 @@ def runSimulation(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BL
     results = []
     agent_pot = []
     
-    '''
-    for i in range(0, one_third_n):
-        result, money = gh.run()
-        results.append(result)
-        agent_pot.append(money)
-    '''
-
     for i in range(0, one_third_n):
         result, money = gh.run()
         results.append(result)
         agent_pot.append(money)
 
-    agents[1] = AlbertaAI()
+    agents = [individual]
+    #agents[0].parseHeuristic()
+
+    agents.append(AlbertaAI())
+    gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
+    
     for i in range(0, one_third_n):
         result, money = gh.run()
         results.append(result)
@@ -887,8 +885,70 @@ def runSimulation(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BL
     
     return (results, agent_pot)
 
+def runSimulationJustCepheus(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BLIND=20):
+    number_of_players = NUM_OF_PLAYERS
+    total_player_pot = TOTAL_PLAYER_POT
+    small_blind = BIG_BLIND / 2
+
+    agents = [individual]
+    agents[0].parseHeuristic()
+    
+    one_third_n = n
+
+    agents.append(AlbertaAI())
+
+    gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
+    
+    results = []
+    agent_pot = []
+
+    for i in range(0, one_third_n):
+        result, money = gh.run()
+        results.append(result)
+        agent_pot.append(money)
+    
+    return (results, agent_pot)
+
+def runSimulationJustTopTen(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BLIND=20):
+    number_of_players = NUM_OF_PLAYERS
+    total_player_pot = TOTAL_PLAYER_POT
+    small_blind = BIG_BLIND / 2
+
+    agents = [individual]
+    agents[0].parseHeuristic()
+    
+    one_third_n = n
+
+    agents.append(TopTenHandAI())
+
+    gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
+    
+    results = []
+    agent_pot = []
+
+    for i in range(0, one_third_n):
+        result, money = gh.run()
+        results.append(result)
+        agent_pot.append(money)
+    
+    return (results, agent_pot)
+
 def evaluate(player, n=8000, TOTAL_PLAYER_POT=1000):
     results, money = runSimulation(player, n, TOTAL_PLAYER_POT=1000)
+    score = {'wins': 0.0, 'ties': 0.0, 'losses': 0.0}
+    money_lost = 0.0
+    
+    return (float(sum(money)) / float(n) - float(TOTAL_PLAYER_POT),)
+
+def evaluateJustCepheus(player, n=8000, TOTAL_PLAYER_POT=1000):
+    results, money = runSimulationJustCepheus(player, n, TOTAL_PLAYER_POT=1000)
+    score = {'wins': 0.0, 'ties': 0.0, 'losses': 0.0}
+    money_lost = 0.0
+    
+    return (float(sum(money)) / float(n) - float(TOTAL_PLAYER_POT),)
+
+def evaluateJustTopTen(player, n=8000, TOTAL_PLAYER_POT=1000):
+    results, money = runSimulationJustTopTen(player, n, TOTAL_PLAYER_POT=1000)
     score = {'wins': 0.0, 'ties': 0.0, 'losses': 0.0}
     money_lost = 0.0
     
@@ -937,6 +997,7 @@ def evaluateMatchUp(player, opponent, n=8000, TOTAL_PLAYER_POT=1000, BIG_BLIND=2
     
     for agent_money in money:
         p_money += agent_money[0]
-        op_money += agent_money[1]
+        #op_money += agent_money[1]
     
-    return ((p_money / float(n)) - float(TOTAL_PLAYER_POT), (op_money / float(n)) - float(TOTAL_PLAYER_POT))
+    #return ((p_money / float(n)) - float(TOTAL_PLAYER_POT), (op_money / float(n)) - float(TOTAL_PLAYER_POT))
+    return ((p_money / float(n)) - float(TOTAL_PLAYER_POT), )
