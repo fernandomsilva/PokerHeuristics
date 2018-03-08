@@ -4,6 +4,7 @@ import operator
 import marshal
 import types
 import pickle
+import json
 
 class Card:
     def __init__(self, value, suit):
@@ -27,6 +28,13 @@ class Deck:
         self.cards = []
         self.draw_queue = []
         self.random_num = r
+    
+    def copy(self):
+        new_deck = Deck(self.random_num)
+        new_deck.cards = list(self.cards)
+        new_deck.draw_queue = list(self.draw_queue)
+        
+        return new_deck
     
     def __str__(self):
         return_value = ""
@@ -64,6 +72,14 @@ class Player:
         self.current_bet = 0
         self.last_move = None
     
+    def copy(self):
+        new_p = Player(list(self.hand), self.pot)
+        new_p.folded = self.folded
+        new_p.current_bet = self.current_bet
+        new_p.last_move = self.last_move
+        
+        return new_p
+    
     def __str__(self):
         result = ''
         result += 'Hand: ' + str(self.hand[0]) + '  ' + str(self.hand[1])
@@ -92,14 +108,40 @@ class Gameloop:
             self.players.append(Player(0, starting_player_pot))
         self.current_player = 0
         self.button = 0
+        self.original_small_blind = small_blind
         self.small_blind = small_blind
         self.big_blind = 2 * small_blind
+        self.number_of_raises = 0
+        self.limit_of_raises = 3
         self.deck = Deck()
         self.pot = 0
         self.board = []
         self.active_players = 2
         self.highest_bidder = None
         self.current_bid = 0
+        self.action_history = ""
+    
+    def copy(self):
+        new_gloop = Gameloop(self.number_of_players, 0, self.small_blind)
+        new_gloop.players = []
+        for i in range(0, self.number_of_players):
+            new_gloop.players.append(self.players[i].copy())
+        new_gloop.current_player = self.current_player
+        new_gloop.button = self.button
+        new_gloop.original_small_blind = self.original_small_blind
+        new_gloop.small_blind = self.small_blind
+        new_gloop.big_blind = self.big_blind
+        new_gloop.number_of_raises = self.number_of_raises
+        new_gloop.limit_of_raises = self.limit_of_raises
+        new_gloop.deck = self.deck.copy()
+        new_gloop.pot = self.pot
+        new_gloop.board = list(self.board)
+        new_gloop.active_players = self.active_players
+        new_gloop.highest_bidder = self.highest_bidder
+        new_gloop.current_bid = self.current_bid
+        new_gloop.action_history = self.action_history
+        
+        return new_gloop
     
     def __str__(self):
         result = ''
@@ -111,8 +153,13 @@ class Gameloop:
     def setup(self):
         self.deck.setup()
         self.pot = 0
+        self.action_history = ""
         self.button = (self.button + 1) % self.number_of_players
         self.board = []
+        self.number_of_raises = 0
+        self.limit_raises = 3
+        self.small_blind = self.original_small_blind
+        self.big_blind = 2 * self.original_small_blind
         
         small_blind_index = (self.button + 1) % self.number_of_players
         big_blind_index = (self.button + 2) % self.number_of_players
@@ -139,12 +186,42 @@ class Gameloop:
         self.board.append(self.deck.draw())
         self.board.append(self.deck.draw())
         self.board.append(self.deck.draw())
+        self.number_of_raises = 0
+        self.limit_raises = 4
+        if self.active_players > 1:
+            self.current_player = ((self.button + 2) % self.number_of_players)
+            self.highest_bidder = self.current_player
+            self.players[0].last_move = None
+            self.players[1].last_move = None
+        
+        self.action_history += "/"
     
     def turn(self):
         self.board.append(self.deck.draw())
+        self.number_of_raises = 0
+        self.limit_raises = 4
+        if self.active_players > 1:
+            self.current_player = ((self.button + 2) % self.number_of_players)
+            self.highest_bidder = self.current_player
+            self.players[0].last_move = None
+            self.players[1].last_move = None
+
+        self.small_blind = self.big_blind
+        self.big_blind = 2 * self.big_blind
+        
+        self.action_history += "/"
     
     def river(self):
         self.board.append(self.deck.draw())
+        self.number_of_raises = 0
+        self.limit_raises = 4
+        if self.active_players > 1:
+            self.current_player = ((self.button + 2) % self.number_of_players)
+            self.highest_bidder = self.current_player
+            self.players[0].last_move = None
+            self.players[1].last_move = None
+        
+        self.action_history += "/"
     
     '''
     value  :   hand
@@ -194,7 +271,7 @@ class Gameloop:
         keys = order_by_value.keys()
         card_set = set(cards)
         if 4 in values:
-            card_value = keys[values.index(4)] 
+            card_value = keys[values.index(4)]
             temp = card_set.difference(set([card_value]))
             return (8, [card_value, max(temp)]) # 4 of a Kind
         
@@ -246,7 +323,7 @@ class Gameloop:
             if rank == 3:
                 return (3, [max_1st_card, max_2nd_card, temp[-1]])
             
-            return (2, [max_1st_card, temp[-1], temp[-2], temp[-3], temp[-4]])
+            return (2, [max_1st_card, temp[-1], temp[-2], temp[-3]])
             #return 3 if values.count(2) >= 2 else 2 # Two or One Pair
 
         return (0, [])
@@ -256,7 +333,7 @@ class Gameloop:
             cards = [1] + cards # To guarantee that A's can also sequel with low card sequences
 
         difference_list = [cards[i+1].value-cards[i].value for i in range(0, len(cards)-1)]
-        string_difference_list = ''.join([str(x) for x in difference_list])
+        string_difference_list = ''.join([str(x) if x < 10 else str(9) for x in difference_list])
         if '1111' in string_difference_list: # Straight
             index = string_difference_list.find('1111')
             return (5, [cards[index+4].value])
@@ -303,6 +380,11 @@ class Gameloop:
             #print "1 player"
             return True
         
+        temp = self.action_history.split("/")
+        if len(temp[-1]) > 1 and temp[-1][-1] == 'c':
+            return True
+        
+        #print (self.current_player, self.highest_bidder, self.players[self.current_player].last_move)
         if self.current_player == self.highest_bidder and self.players[self.current_player].last_move != None:
             #print "All checks"
             return True
@@ -315,6 +397,9 @@ class Gameloop:
         #    self.current_player = (self.current_player + 1) % self.number_of_players
     
     def raiseBet(self, multiplier=1):
+        if self.number_of_raises >= self.limit_of_raises:
+            return self.check()
+        
         player = self.players[self.current_player]
         
         amount = self.current_bid - player.current_bet + (multiplier * self.big_blind)
@@ -325,9 +410,11 @@ class Gameloop:
             player.last_move = 'check'
         else:
             player.last_move = 'raise'
+            self.action_history += "r"
             self.current_bid += (multiplier * self.big_blind)
             self.highest_bidder = self.current_player
         
+        self.number_of_raises += 1
         self.nextPlayer()
         
     def fold(self):
@@ -349,15 +436,17 @@ class Gameloop:
         
         amount = self.current_bid - player.current_bet
         
-        player.last_move = 'check'
+        player.last_move = 'check'        
+        self.action_history += "c"
 
         if amount > 0:
             value_of_bid = player.bid(amount)
             self.pot += value_of_bid
-            self.nextPlayer()
+            
+        self.nextPlayer()
     
     def possible_moves(self):
-        moves = ['raise', 'raise5', 'raise10', 'check', 'fold']
+        moves = ['raise', 'check', 'fold']
         
         #player = self.players[self.current_player]
         
@@ -429,8 +518,91 @@ class GameHandler:
         self.starting_player_pot = starting_player_pot
         self.game = Gameloop(number_of_players, starting_player_pot, small_blind)
         self.agents = agents
-    
-    def gameloop(self):
+
+    def run_gameloop_upTo(self, cutoff_street=1):
+        for i in range(0, self.game.number_of_players):
+            self.game.players[i].pot = self.starting_player_pot
+            
+        self.game.setup()
+       
+        for i in range(0, self.game.number_of_players):
+            self.agents[i].setHand(self.game.players[i].hand)
+        
+        counter = 0
+        while not self.game.isBettingRoundOver():
+            current_agent = self.game.current_player
+            
+            move = self.agents[current_agent].decide(self.game, self.game.possible_moves())
+            self.game.executeMove(move)
+
+        self.game.flop()
+
+        if cutoff_street > 1:
+            while not self.game.isBettingRoundOver():
+                current_agent = self.game.current_player
+
+                move = self.agents[current_agent].decide(self.game, self.game.possible_moves())
+                self.game.executeMove(move)
+
+            self.game.turn()
+
+        if cutoff_street > 2:
+            while not self.game.isBettingRoundOver():
+                current_agent = self.game.current_player
+
+                move = self.agents[current_agent].decide(self.game, self.game.possible_moves())
+                self.game.executeMove(move)
+                
+            self.game.river()
+
+    def gameloop(self, street=3):
+        for i in range(0, self.game.number_of_players):
+            self.game.players[i].pot = self.starting_player_pot
+            
+        self.game.setup()
+        
+        if street > 0:
+            self.game.flop()
+        if street > 1:
+            self.game.turn()
+        if street > 2:
+            self.game.river()
+        
+        for i in range(0, self.game.number_of_players):
+            self.agents[i].setHand(self.game.players[i].hand)
+        
+        counter = 0
+        while not self.game.isBettingRoundOver():
+            current_agent = self.game.current_player
+            
+            move = self.agents[current_agent].decide(self.game, self.game.possible_moves())
+            self.game.executeMove(move)
+
+        if street < 1:
+            self.game.flop()
+        if street < 2:
+            self.game.turn()
+        if street < 3:
+            self.game.river()
+
+    def resume_gameloop(self, street=1):
+        for i in range(0, self.game.number_of_players):
+            self.agents[i].setHand(self.game.players[i].hand)
+        
+        while not self.game.isBettingRoundOver():
+            current_agent = self.game.current_player
+            
+            move = self.agents[current_agent].decide(self.game, self.game.possible_moves())
+            self.game.executeMove(move)
+
+        if street < 1:
+            self.game.flop()
+        if street < 2:
+            self.game.turn()
+        if street < 3:
+            self.game.river()
+
+    def full_gameloop(self):
         for i in range(0, self.game.number_of_players):
             self.game.players[i].pot = self.starting_player_pot
             
@@ -438,32 +610,71 @@ class GameHandler:
         
         for i in range(0, self.game.number_of_players):
             self.agents[i].setHand(self.game.players[i].hand)
-            #print "Player " + str(i)
-            #print str(self.game.players[i].hand[0]) + " " + str(self.game.players[i].hand[1])
-            #self.agents[i].generateOffset()
-            #self.game.players[i].pot = self.starting_player_pot
         
-        counter = 0
         while not self.game.isBettingRoundOver():
             current_agent = self.game.current_player
             
             move = self.agents[current_agent].decide(self.game, self.game.possible_moves())
-            #print(str(current_agent) + ": " + str(move))
+            self.game.executeMove(move)
+
+        self.game.flop()
+        
+        while not self.game.isBettingRoundOver():
+            current_agent = self.game.current_player
+            
+            move = self.agents[current_agent].decide(self.game, self.game.possible_moves())
+            self.game.executeMove(move)
+        
+        self.game.turn()
+        
+        while not self.game.isBettingRoundOver():
+            current_agent = self.game.current_player
+            
+            move = self.agents[current_agent].decide(self.game, self.game.possible_moves())
+            self.game.executeMove(move)
+        
+        self.game.river()
+        
+        while not self.game.isBettingRoundOver():
+            current_agent = self.game.current_player
+            
+            move = self.agents[current_agent].decide(self.game, self.game.possible_moves())
             self.game.executeMove(move)
             
-            #counter += 1
-            #if counter == 100:
-            #    break
-        
-        self.game.flop()
-        self.game.turn()
-        self.game.river()
-    
-    def run(self):
-        self.gameloop()
-        
+    def run(self, street=3):
+        self.gameloop(street)
         winners = self.game.winner()
         #print winners
+        num_of_winners = float(len(winners))
+        for win_player_index in winners:
+            self.game.players[win_player_index].pot += int(float(self.game.pot) / num_of_winners)        
+        
+        return winners, self.game.players[0].pot
+    
+    def runResume(self, street=3):
+        self.resume_gameloop(street)
+        winners = self.game.winner()
+
+        num_of_winners = float(len(winners))
+        for win_player_index in winners:
+            self.game.players[win_player_index].pot += int(float(self.game.pot) / num_of_winners)        
+        
+        return winners, self.game.players[0].pot        
+
+    def runFullGame(self):
+        self.full_gameloop()
+        winners = self.game.winner()
+
+        num_of_winners = float(len(winners))
+        for win_player_index in winners:
+            self.game.players[win_player_index].pot += int(float(self.game.pot) / num_of_winners)        
+        
+        return winners, self.game.players[0].pot
+
+    def runTestGame(self):
+        self.test_full_gameloop()
+        winners = self.game.winner()
+
         num_of_winners = float(len(winners))
         for win_player_index in winners:
             self.game.players[win_player_index].pot += int(float(self.game.pot) / num_of_winners)        
@@ -705,7 +916,7 @@ class AlbertaAI:
         if gamestate.pot >= 11 * gamestate.big_blind:
             action_sequence += "r"
         '''
-
+        
         decision = self.look_up_table[action_sequence][card1][card2][suit]
         
         if prob_num < decision['raise']:
@@ -716,7 +927,137 @@ class AlbertaAI:
             return 'check'
 
         return 'fold'
+
+class RandomAI:
+    def __init__(self):
+        pass
     
+    def setHand(self, hand):
+        self.hand = [hand[0].value, hand[1].value]
+        self.isSameSuit = True if hand[0].suit == hand[1].suit else False
+    
+    def generateOffset(self):
+        pass
+    
+    def parseHeuristic(self):
+        pass
+    
+    def decide(self, gamestate, available_actions):
+        return random.choice(['raise', 'check', 'fold'])
+
+class WeightedRandomAI:
+    def __init__(self):
+        pass
+    
+    def setHand(self, hand):
+        self.hand = [hand[0].value, hand[1].value]
+        self.isSameSuit = True if hand[0].suit == hand[1].suit else False
+    
+    def generateOffset(self):
+        pass
+    
+    def parseHeuristic(self):
+        pass
+    
+    def decide(self, gamestate, available_actions):
+        probabilities = {}
+        if len(gamestate.board) == 0:
+            probabilities = {
+                'raise': 0.25,
+                'check': 0.7,
+                'fold' : 0.05,
+            }
+        else:
+            rank = gamestate.rankHand(gamestate.current_player)
+            if rank == 0:
+                probabilities = {
+                    'raise': 0.0,
+                    'check': 0.15,
+                    'fold' : 0.85,
+                }
+
+            elif rank <= 2:
+                probabilities = {
+                    'raise': 0.4,
+                    'check': 0.5,
+                    'fold' : 0.1,
+                }
+            elif rank <= 6:
+                probabilities = {
+                    'raise': 0.7,
+                    'check': 0.25,
+                    'fold' : 0.05,
+                }
+            else:
+                probabilities = {
+                    'raise': 0.95,
+                    'check': 0.05,
+                    'fold' : 0.0,
+                }
+        
+        random_n = random.uniform(0, 1)
+        
+        if random_n < probabilities['raise']:
+            return 'raise'
+        
+        random_n -= probabilities['raise']
+        
+        if random_n < probabilities['check']:
+            return 'check'
+        
+        return 'fold'
+
+class CFRAI:
+    def __init__(self):
+        self.strategy_dict = None
+        strategy_filename = "CFR_strategy_refined_moreiters_dict.json"
+        strategy_file = open(strategy_filename, 'r')
+        self.strategy_dict = json.loads(strategy_file.read())
+        strategy_file.close()
+    
+    def setHand(self, hand):
+        self.hand = [hand[0].value, hand[1].value]
+        self.isSameSuit = True if hand[0].suit == hand[1].suit else False
+    
+    def generateOffset(self):
+        pass
+    
+    def parseHeuristic(self):
+        pass
+    
+    def decide(self, gamestate, available_actions):
+        hand_rank = 0
+        if gamestate.board == []:
+            hand_rank = 1
+        else:
+            hand_rank = gamestate.rankHand(gamestate.current_player)[0]
+        if hand_rank == 0:
+            hand_rank = 1
+        elif hand_rank == 10:
+            hand_rank = 9
+        
+        #print hand_rank
+        probabilities = self.strategy_dict[gamestate.action_history][str(hand_rank)]
+        
+        if 'r' not in probabilities:
+            probabilities['r'] = 0.0
+        if 'c' not in probabilities:
+            probabilities['c'] = 0.0
+        if 'f' not in probabilities:
+            probabilities['f'] = 0.0
+        
+        random_n = random.uniform(0, 1)
+        
+        if random_n < probabilities['r']:
+            return 'raise'
+        
+        random_n -= probabilities['r']
+        
+        if random_n < probabilities['c']:
+            return 'check'
+        
+        return 'fold'
+
 ### PRIMITIVE TREE FUNCTIONS
 
 def IfThenElse(input_condition, output1, output2):
@@ -731,8 +1072,20 @@ def isSameSuit(hand):
     
     return False
 
+def notSameSuit(hand):
+    if hand[0].suit != hand[1].suit:
+        return True
+    
+    return False
+
 def hasDoubles(hand):
     if hand[0].value == hand[1].value:
+        return True
+    
+    return False
+
+def notHasDoubles(hand):
+    if hand[0].value != hand[1].value:
         return True
     
     return False
@@ -813,6 +1166,25 @@ def totalPotLE(potSize, value):
         return True
     return potSize <= value
 
+def returnHandRank(hand, board):
+    if board == []:
+        return 1
+    
+    gloop = Gameloop(1, 10, 1)
+    gloop.players[0].hand = hand
+    gloop.board = board
+    rank = gloop.rankHand(0)[0]
+    if rank == 0:
+        rank = 1
+
+    return rank
+
+def handValueGE(hand, value, board):
+    return returnHandRank(hand, board) >= value
+
+def handValueLE(hand, value, board):
+    return returnHandRank(hand, board) <= value
+
 ### PRIMITIVE TREE FUNCTIONS
 
 ### Heuristic AI
@@ -839,10 +1211,11 @@ class HeuristicAI:
     def decide(self, gamestate, available_actions):
         #hand = self.gamestate.players[self.gamestate.current_player]
         pot_size = int(float(gamestate.current_bid) / float(gamestate.big_blind))
+        board = gamestate.board
         
-        return self.heuristic(self.hand, pot_size)
+        return self.heuristic(self.hand, pot_size, board)
 
-def runSimulation(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BLIND=20):
+def runSimulation(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BLIND=20, street=3):
     number_of_players = NUM_OF_PLAYERS
     total_player_pot = TOTAL_PLAYER_POT
     small_blind = BIG_BLIND / 2
@@ -850,10 +1223,20 @@ def runSimulation(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BL
     agents = [individual]
     agents[0].parseHeuristic()
     
+    agents.append(WeightedRandomAI())
+
+    gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
+    
+    results = []
+    agent_pot = []
+    
+    for i in range(0, n):
+        result, money = gh.run(street=street)
+        results.append(result)
+        agent_pot.append(money)
+    '''
     one_third_n = n / 2
 
-    #agents.append(TierHandAI())
-    #agents.append(AlbertaAI())
     agents.append(TopTenHandAI())
 
     gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
@@ -862,27 +1245,43 @@ def runSimulation(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BL
     agent_pot = []
     
     for i in range(0, one_third_n):
-        result, money = gh.run()
+        result, money = gh.run(street=street)
         results.append(result)
         agent_pot.append(money)
 
     agents = [individual]
-    #agents[0].parseHeuristic()
 
     agents.append(AlbertaAI())
     gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
     
     for i in range(0, one_third_n):
-        result, money = gh.run()
+        result, money = gh.run(street=street)
+        results.append(result)
+        agent_pot.append(money)
+    '''
+    return (results, agent_pot)
+
+def runFullSimulation(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BLIND=20):
+    number_of_players = NUM_OF_PLAYERS
+    total_player_pot = TOTAL_PLAYER_POT
+    small_blind = BIG_BLIND / 2
+
+    agents = [individual]
+    agents[0].parseHeuristic()
+    
+    #agents.append(WeightedRandomAI())
+    agents.append(CFRAI())
+
+    gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
+    
+    results = []
+    agent_pot = []
+    
+    for i in range(0, n):
+        result, money = gh.runFullGame()
         results.append(result)
         agent_pot.append(money)
 
-    #agents[1] = TopTenHandAI()
-    #for i in range(n/2, n):
-    #    result, money = gh.run()
-    #    results.append(result)
-    #    agent_pot.append(money)
-    
     return (results, agent_pot)
 
 def runSimulationJustCepheus(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BLIND=20):
@@ -933,22 +1332,60 @@ def runSimulationJustTopTen(individual, n, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=10
     
     return (results, agent_pot)
 
-def evaluate(player, n=8000, TOTAL_PLAYER_POT=1000):
-    results, money = runSimulation(player, n, TOTAL_PLAYER_POT=1000)
+def runSimulationFreezeGame(individual, n, gameloops, street, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BLIND=20):
+    number_of_players = NUM_OF_PLAYERS
+    total_player_pot = TOTAL_PLAYER_POT
+    small_blind = BIG_BLIND / 2
+
+    agents = [individual]
+    agents[0].parseHeuristic()
+    
+    agents.append(CFRAI())
+    
+    results = []
+    agent_pot = []
+    
+    for i in range(0, n):
+        gh = GameHandler(number_of_players, agents, total_player_pot, small_blind)
+        #gh.agents = agents
+        gh.game = gameloops[i].copy()
+        result, money = gh.runResume(street)
+        results.append(result)
+        agent_pot.append(money)
+        
+        del gh
+    
+    return (results, agent_pot)
+
+def evaluateFreezeGameState(player, gameloops, n=8000, street=3, TOTAL_PLAYER_POT=1000):
+    #game_handlers = pickle.load(open(input_file, "rb"))
+    results, money = runSimulationFreezeGame(player, n, gameloops, street, TOTAL_PLAYER_POT=TOTAL_PLAYER_POT)
+    
+    return (float(sum(money)) / float(n) - float(TOTAL_PLAYER_POT),)
+
+def evaluate(player, n=8000, street=3, TOTAL_PLAYER_POT=1000):
+    results, money = runSimulation(player, n, TOTAL_PLAYER_POT=TOTAL_PLAYER_POT, street=street)
+    score = {'wins': 0.0, 'ties': 0.0, 'losses': 0.0}
+    money_lost = 0.0
+    
+    return (float(sum(money)) / float(n) - float(TOTAL_PLAYER_POT),)
+
+def evaluateFullGame(player, n=8000, TOTAL_PLAYER_POT=1000):
+    results, money = runFullSimulation(player, n, TOTAL_PLAYER_POT=TOTAL_PLAYER_POT)
     score = {'wins': 0.0, 'ties': 0.0, 'losses': 0.0}
     money_lost = 0.0
     
     return (float(sum(money)) / float(n) - float(TOTAL_PLAYER_POT),)
 
 def evaluateJustCepheus(player, n=8000, TOTAL_PLAYER_POT=1000):
-    results, money = runSimulationJustCepheus(player, n, TOTAL_PLAYER_POT=1000)
+    results, money = runSimulationJustCepheus(player, n, TOTAL_PLAYER_POT=TOTAL_PLAYER_POT)
     score = {'wins': 0.0, 'ties': 0.0, 'losses': 0.0}
     money_lost = 0.0
     
     return (float(sum(money)) / float(n) - float(TOTAL_PLAYER_POT),)
 
 def evaluateJustTopTen(player, n=8000, TOTAL_PLAYER_POT=1000):
-    results, money = runSimulationJustTopTen(player, n, TOTAL_PLAYER_POT=1000)
+    results, money = runSimulationJustTopTen(player, n, TOTAL_PLAYER_POT=TOTAL_PLAYER_POT)
     score = {'wins': 0.0, 'ties': 0.0, 'losses': 0.0}
     money_lost = 0.0
     

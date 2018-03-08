@@ -1,0 +1,22 @@
+Exhaustive Search
+Number of Simulations: 400000
+IfThenElse(handValueGE(ARG0, 3, ARG2), 'raise', 'check');(16.029087499999946,);
+IfThenElse(handValueLE(ARG0, 2, ARG2), 'check', 'raise');(16.014374999999973,);
+IfThenElse(handValueGE(ARG0, 3, ARG2), 'raise', 'fold');(15.022100000000023,);
+IfThenElse(handValueLE(ARG0, 2, ARG2), 'fold', 'raise');(14.642225000000053,);
+IfThenElse(handValueGE(ARG0, 2, ARG2), 'raise', 'fold');(13.321800000000053,);
+IfThenElse(handValueLE(ARG0, 1, ARG2), 'fold', 'raise');(13.168187500000045,);
+IfThenElse(handValueLE(ARG0, 1, ARG2), 'check', 'raise');(11.119812499999966,);
+IfThenElse(handValueGE(ARG0, 2, ARG2), 'raise', 'check');(10.851412500000038,);
+IfThenElse(handValueGE(ARG0, 4, ARG2), 'raise', 'check');(7.3789749999999685,);
+IfThenElse(handValueLE(ARG0, 3, ARG2), 'check', 'raise');(7.206987499999968,);
+IfThenElse(handValueLE(ARG0, 4, ARG2), 'check', 'raise');(4.947087499999952,);
+IfThenElse(handValueGE(ARG0, 5, ARG2), 'raise', 'check');(4.678774999999973,);
+IfThenElse(handValueLE(ARG0, 5, ARG2), 'check', 'raise');(2.1653874999999516,);
+IfThenElse(handValueGE(ARG0, 6, ARG2), 'raise', 'check');(2.1076874999999973,);
+IfThenElse(totalPotGE(ARG1, 15), 'fold', 'raise');(0.6903125000000045,);
+IfThenElse(totalPotGE(ARG1, 21), 'check', 'raise');(0.6870499999999993,);
+IfThenElse(totalPotGE(ARG1, 31), 'fold', 'raise');(0.6218499999999949,);
+IfThenElse(handValueGE(ARG0, 1, ARG2), 'raise', 'check');(0.6113249999999653,);
+IfThenElse(totalPotGE(ARG1, 30), 'check', 'raise');(0.5885500000000548,);
+IfThenElse(totalPotGE(ARG1, 23), 'check', 'raise');(0.5784499999999753,);

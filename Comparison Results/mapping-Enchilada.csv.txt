@@ -1,0 +1,8 @@
+Num Sims; Heuristic; Complexity; Fitness;
+3200000; IfThenElse(and_(handValueLE(ARG0, 2, ARG2), highestCardLE(ARG0, 11)), 'fold', IfThenElse(handValueLE(ARG0, 1, ARG2), 'fold', 'raise')); 6; -2.5416796875;
+3200000; IfThenElse(and_(highestCardGE(ARG0, 11), handValueGE(ARG0, 2, ARG2)), 'raise', IfThenElse(handValueGE(ARG0, 3, ARG2), 'raise', 'fold')); 6; -1.0131390625;
+3200000; IfThenElse(and_(handValueLE(ARG0, 2, ARG2), highestCardLE(ARG0, 11)), 'fold', IfThenElse(handValueLE(ARG0, 1, ARG2), 'check', 'raise')); 6; -0.38931875;
+3200000; IfThenElse(handValueGE(ARG0, 3, ARG2), 'raise', 'check'); 3; 0.2005125;
+3200000; IfThenElse(handValueLE(ARG0, 2, ARG2), 'check', 'raise'); 3; 0.187534375;
+3200000; IfThenElse(handValueGE(ARG0, 3, ARG2), 'raise', 'fold'); 3; -9.838096875;
+3200000; IfThenElse(handValueLE(ARG0, 2, ARG2), 'fold', 'raise'); 3; -9.853046875;
