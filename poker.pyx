@@ -1357,6 +1357,48 @@ def runSimulationFreezeGame(individual, n, gameloops, street, NUM_OF_PLAYERS=2, 
     
     return (results, agent_pot)
 
+def runSimulationInSteps(individual, n, street, NUM_OF_PLAYERS=2, TOTAL_PLAYER_POT=1000, BIG_BLIND=20):
+    number_of_players = NUM_OF_PLAYERS
+    total_player_pot = TOTAL_PLAYER_POT
+    small_blind = BIG_BLIND / 2
+
+    #agents = [individual]
+    #agents[0].parseHeuristic()
+    first_step_agents = [CFRAI()]
+    first_step_agents.append(CFRAI())
+    
+    second_step_agents = [individual]
+    second_step_agents[0].parseHeuristic()
+    
+    second_step_agents.append(CFRAI())
+    
+    results = []
+    agent_pot = []
+
+    gh = GameHandler(number_of_players, first_step_agents, total_player_pot, small_blind)
+    
+    for i in range(0, n):
+        gh.agents = first_step_agents
+        while True:
+            gh.run_gameloop_upTo(cutoff_street=street)
+            
+            if gh.game.active_players > 1:
+                break
+            
+            gh.game.setup()
+        
+        gh.agents = second_step_agents
+        result, money = gh.runResume(street)
+        results.append(result)
+        agent_pot.append(money)        
+    
+    return (results, agent_pot)
+
+def evaluateInSteps(player, n=8000, street=3, TOTAL_PLAYER_POT=1000):
+    results, money = runSimulationInSteps(player, n, street, TOTAL_PLAYER_POT=TOTAL_PLAYER_POT)
+    
+    return (float(sum(money)) / float(n) - float(TOTAL_PLAYER_POT),)    
+
 def evaluateFreezeGameState(player, gameloops, n=8000, street=3, TOTAL_PLAYER_POT=1000):
     #game_handlers = pickle.load(open(input_file, "rb"))
     results, money = runSimulationFreezeGame(player, n, gameloops, street, TOTAL_PLAYER_POT=TOTAL_PLAYER_POT)

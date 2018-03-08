@@ -10,7 +10,7 @@ import time, datetime, os
 from deap import creator, gp, base, tools, algorithms
 
 DEFAULT_TREE_DEPTH = 2
-machine_alias = "Enchilada"
+machine_alias = "Typheus"
 
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
 #creator.create("Individual", list, fitness=creator.FitnessMax)
